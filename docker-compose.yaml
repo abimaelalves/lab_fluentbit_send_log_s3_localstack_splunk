@@ -1,0 +1,51 @@
+
+services:
+  localstack:
+    container_name: localstack
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    volumes:
+      - ./localstack:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - observability_net
+
+  fluentbit:
+    container_name: fluentbit
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - SPLUNK_TOKEN=token-fluentbit-test
+    depends_on:
+      - localstack
+      - splunk
+    networks:
+      - observability_net
+
+  splunk:
+    image: splunk/splunk:latest
+    platform: linux/amd64
+    container_name: splunk
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_PASSWORD=changeme123
+      - SPLUNK_HEC_TOKEN=token-fluentbit-test
+      - SPLUNK_HEC_ENABLE=true
+    ports:
+      - "8000:8000"
+      - "8088:8088"
+    networks:
+      - observability_net
+
+networks:
+  observability_net:
+    driver: bridge
